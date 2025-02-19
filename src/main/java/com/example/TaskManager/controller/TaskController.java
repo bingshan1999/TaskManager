@@ -11,7 +11,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/tasks")
-//@CrossOrigin(origins = "http://localhost:3000") // Allows React frontend to access API
+@CrossOrigin(origins = "http://localhost:3000") // Allows React frontend to access API
 public class TaskController {
 
     @Autowired
