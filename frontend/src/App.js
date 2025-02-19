@@ -11,7 +11,7 @@ function App() {
   const [sortType, setSortType] = useState("status"); // Default sorting by status
   const [searchQuery, setSearchQuery] = useState(""); // Search input for filtering by title
 
-  // ✅ Fetch tasks from the backend
+  // Fetch tasks from the backend
   useEffect(() => {
     fetch("http://localhost:8080/tasks")
       .then(response => response.json())
@@ -21,7 +21,7 @@ function App() {
       .catch(error => console.error("Error fetching tasks:", error));
   }, []);
 
-  // ✅ Update filtered tasks when sorting/filtering/search changes
+  // Update filtered tasks when sorting/filtering/search changes
   useEffect(() => {
     let groupedTasks = {};
 
@@ -47,7 +47,7 @@ function App() {
     setFilteredTasks(groupedTasks);
   }, [sortType, tasks, searchQuery]);
 
-  // ✅ Handle new task creation
+  // Handle new task creation
   const handleSubmit = (e) => {
     e.preventDefault();
     fetch("http://localhost:8080/tasks", {
@@ -64,7 +64,7 @@ function App() {
       .catch(error => console.error("Error adding task:", error));
   };
 
-  // ✅ Update task status
+  // Update task status
   const updateTaskStatus = (taskId, newStatus) => {
     const updatedTask = tasks.find(task => task.id === taskId);
     if (!updatedTask) return;
@@ -81,7 +81,7 @@ function App() {
       .catch(error => console.error("Error updating task:", error));
   };
 
-  // ✅ Delete a task
+  //  Delete a task
   const handleDelete = (taskId) => {
     fetch(`http://localhost:8080/tasks/${taskId}`, { method: "DELETE" })
       .then(() => setTasks(tasks.filter(task => task.id !== taskId)))
