@@ -2,52 +2,37 @@ import { useEffect, useState } from "react";
 import TaskCard from "./components/TaskCard";
 import TaskModal from "./components/TaskModal";
 import CollapsibleSection from "./components/CollapsibleSection";
+import ErrorMessage from "./components/ErrorMessage"; //  Import error component
 
 function App() {
   const [tasks, setTasks] = useState([]);
-  const [filteredTasks, setFilteredTasks] = useState({});
+  const [filteredTasks, setFilteredTasks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", assignedTo: "", status: "PENDING" });
-  const [sortType, setSortType] = useState("status"); // Default sorting by status
-  const [searchQuery, setSearchQuery] = useState(""); // Search input for filtering by title
+  const [sortType, setSortType] = useState("status");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  // Fetch tasks from the backend
+  //  Fetch tasks with error handling
   useEffect(() => {
     fetch("http://localhost:8080/tasks")
-      .then(response => response.json())
-      .then(data => {
-        setTasks(data);
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to fetch tasks. The server may be down.");
+        return response.json();
       })
-      .catch(error => console.error("Error fetching tasks:", error));
+      .then(data => {
+        console.log(data);
+        setTasks(data);
+        setFilteredTasks(data);
+        setErrorMessage(null);
+      })
+      .catch(error => {
+        console.error("Error fetching tasks:", error);
+        setErrorMessage("Unable to load tasks. Please check your connection.");
+      });
   }, []);
 
-  // Update filtered tasks when sorting/filtering/search changes
-  useEffect(() => {
-    let groupedTasks = {};
-
-    // **Apply Search Filter (Title Contains Search Query)**
-    const filteredBySearch = tasks.filter(task => 
-      task.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    if (sortType === "status") {
-      groupedTasks = {
-        PENDING: filteredBySearch.filter(task => task.status === "PENDING"),
-        IN_PROGRESS: filteredBySearch.filter(task => task.status === "IN_PROGRESS"),
-        COMPLETED: filteredBySearch.filter(task => task.status === "COMPLETED"),
-      };
-    } else if (sortType === "assignedTo") {
-      groupedTasks = filteredBySearch.reduce((acc, task) => {
-        if (!acc[task.assignedTo]) acc[task.assignedTo] = [];
-        acc[task.assignedTo].push(task);
-        return acc;
-      }, {});
-    }
-
-    setFilteredTasks(groupedTasks);
-  }, [sortType, tasks, searchQuery]);
-
-  // Handle new task creation
+  // ✅ Handle new task creation with error handling
   const handleSubmit = (e) => {
     e.preventDefault();
     fetch("http://localhost:8080/tasks", {
@@ -55,16 +40,24 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTask),
     })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to create task.");
+        return response.json();
+      })
       .then(data => {
         setTasks([...tasks, data]);
-        setIsModalOpen(false);
+        setIsModalOpen(false); // ✅ Close modal on success
         setNewTask({ title: "", description: "", assignedTo: "", status: "PENDING" });
+        setErrorMessage(null);
       })
-      .catch(error => console.error("Error adding task:", error));
+      .catch(error => {
+        console.error("Error adding task:", error);
+        setErrorMessage("Could not create task. Please try again.");
+        setIsModalOpen(false); // ✅ Close modal on failure so user sees the error
+      });
   };
 
-  // Update task status
+  // ✅ Update task status with error handling
   const updateTaskStatus = (taskId, newStatus) => {
     const updatedTask = tasks.find(task => task.id === taskId);
     if (!updatedTask) return;
@@ -74,28 +67,44 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...updatedTask, status: newStatus }),
     })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to update task.");
+        return response.json();
+      })
       .then(updatedTask => {
         setTasks(tasks.map(task => (task.id === taskId ? updatedTask : task)));
+        setErrorMessage(null);
       })
-      .catch(error => console.error("Error updating task:", error));
+      .catch(error => {
+        console.error("Error updating task:", error);
+        setErrorMessage("Could not update task. Please try again.");
+      });
   };
 
-  //  Delete a task
+  // ✅ Delete a task with error handling
   const handleDelete = (taskId) => {
     fetch(`http://localhost:8080/tasks/${taskId}`, { method: "DELETE" })
-      .then(() => setTasks(tasks.filter(task => task.id !== taskId)))
-      .catch(error => console.error("Error deleting task:", error));
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to delete task.");
+        setTasks(tasks.filter(task => task.id !== taskId));
+        setErrorMessage(null);
+      })
+      .catch(error => {
+        console.error("Error deleting task:", error);
+        setErrorMessage("Could not delete task. Please try again.");
+      });
   };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-6 font-sans">
+      {/* ✅ Global Error Message (Now bottom-right and visible even with modal open) */}
+      <ErrorMessage message={errorMessage} onClose={() => setErrorMessage(null)} />
+
       <h1 className="text-4xl font-bold text-center text-slate-100 mb-6">Task Manager</h1>
 
       {/* Filter, Search & Add Task */}
-      <div className="flex flex-col md:flex-row justify-between max-w-4xl mx-auto mb-6 gap-4">
+      <div className="flex flex-col md:flex-row justify-between max-w-4xl mx-auto mb-6 space-y-3 md:space-y-0">
         <div className="flex space-x-3">
-          {/* Sorting Selection */}
           <label className="flex items-center space-x-2">
             <input type="radio" value="status" checked={sortType === "status"} onChange={() => setSortType("status")} className="accent-blue-500" />
             <span>Sort by Status</span>
@@ -109,8 +118,8 @@ function App() {
         {/* Search Bar */}
         <input
           type="text"
-          placeholder="Search by Title..."
-          className="p-2 rounded-md bg-slate-700 text-white w-full md:w-1/3"
+          placeholder="Search by Title"
+          className="p-2 rounded-md bg-slate-700 text-white w-full md:w-72"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
